@@ -8,5 +8,10 @@ IoT project to alert user of freezer malfunction
 
 ## Software
 
-  - particlejs: https://github.com/spark/sparkjs
-  - ifttt
+  - https://github.com/Hotaman/OneWireSpark
+
+## Integrations
+  - ifttt:
+    - Particle -> IF (push notification)
+    - Particle -> Gmail (email notifications and SMS)
+    - Particle -> Drive (simple temp variable value tracking)
