@@ -36,12 +36,12 @@ int msDelayInterval = 5000;
 int msfiveMinutes = 300000;
 int msOneHour = 3600000;
 
-float lowFahrenheitThreshhold = 74.0;
+float lowFahrenheitThreshhold = -5.0;
 int lowThreshExceededCounter = 0;
 int numLowTempViolations = msfiveMinutes/msDelayInterval;
 
-float highFahrenheitThreshhold1 = 75.0;
-float highFahrenheitThreshhold2 = 80.0;
+float highFahrenheitThreshhold1 = 25.0;
+float highFahrenheitThreshhold2 = 30.0;
 int highThreshExceededCounter = 0;
 
 int numHighTempViolations_level1 = 2;
@@ -71,6 +71,10 @@ void publishViolationEvent(int numViolations, char* eventName) {
     int secondsInViolation = numViolations * (msDelayInterval/1000);
     sprintf(publishString,"%.2f", fahrenheitTemp);
     Particle.publish(eventName, publishString);
+}
+
+double calcFahrenheitFromCelsius(float celsius){
+  return celsius * 1.8 + 32.0;
 }
 
 // up to here, it is the same as the address acanner
@@ -218,7 +222,7 @@ void loop(void) {
       }
   }
 
-  fahrenheitTemp = celsius * 1.8 + 32.0;
+  fahrenheitTemp = calcFahrenheitFromCelsius(celsius);//celsius * 1.8 + 32.0;
   Serial.print("Temp: ");
   Serial.print(celsius);
   Serial.print(" C, ");
