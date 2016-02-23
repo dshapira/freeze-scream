@@ -50,9 +50,12 @@ int numHighTempViolations_level1 = 2;
 int numHighTempViolations_level2 = msfiveMinutes/msTotalDelayInterval;
 int numHighTempViolations_level3 = msOneHour/msTotalDelayInterval;
 
-double fahrenheitTemp = 0.0;
 float celsiusTemp;
+double fahrenheitTemp = 0.0;
 char publishString[40];
+
+int numLoopIterationsBeforeLog = msfiveMinutes/msTotalDelayInterval;
+int loopCounter = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -70,7 +73,7 @@ bool inViolationForExactDuration(int counter, int numAllowedViolations) {
   return counter == numAllowedViolations;
 }
 
-void publishViolationEvent(int numViolations, char* eventName) {
+void publishTempEvent(char* eventName, double fahrenheitTemp) {
   sprintf(publishString,"%.2f", fahrenheitTemp);
   Particle.publish(eventName, publishString);
 }
@@ -226,8 +229,11 @@ void readCelsiusTemp(float* celsius) {
   return;
 }
 
-void checkFreezerScreamerConditions() {
+float getCelsiusTemp() {
+  return celsiusTemp;
+}
 
+void checkFreezerScreamerConditions() {
   Serial.print("Temp: ");
   Serial.print(celsiusTemp);
   Serial.print(" C, ");
@@ -239,15 +245,18 @@ void checkFreezerScreamerConditions() {
 
     if(inViolationForExactDuration(highThreshExceededCounter, numHighTempViolations_level1)) {
       Serial.println(" highTempViolation_level1");
-      publishViolationEvent(numHighTempViolations_level1, "highTempViolation_level1");
+      publishTempEvent("highTempViolation_level1", fahrenheitTemp);
+      Particle.publish("fahrenheitTempLog", "highTempViolation_level1");
     }
     if(inViolationForExactDuration(highThreshExceededCounter, numHighTempViolations_level2)) {
       Serial.println(" highTempViolation_level2");
-      publishViolationEvent(numHighTempViolations_level2, "highTempViolation_level2");
+      publishTempEvent("highTempViolation_level2", fahrenheitTemp);
+      Particle.publish("fahrenheitTempLog", "highTempViolation_level2");
     }
     if(inViolationForExactDuration(highThreshExceededCounter, numHighTempViolations_level3)) {
       Serial.println(" highTempViolation_level3");
-      publishViolationEvent(numHighTempViolations_level3, "highTempViolation_level3");
+      publishTempEvent("highTempViolation_level3", fahrenheitTemp);
+      Particle.publish("fahrenheitTempLog", "highTempViolation_level3");
       highThreshExceededCounter = 0; // now reset notification sequence
     }
   }
@@ -260,7 +269,8 @@ void checkFreezerScreamerConditions() {
 
     if(inViolationForExactDuration(lowThreshExceededCounter, numLowTempViolations)) {
       Serial.println(" lowTempViolation");
-      publishViolationEvent(numLowTempViolations, "lowTempViolation");
+      publishTempEvent("lowTempViolation", fahrenheitTemp);
+      Particle.publish("fahrenheitTempLog", "lowTempViolation");
       lowThreshExceededCounter = 0; // now reset notification sequence
     }
   }
@@ -269,14 +279,15 @@ void checkFreezerScreamerConditions() {
   }
 }
 
-float getCelsiusTemp() {
-  return celsiusTemp;
-}
-
 void loop(void) {
   readCelsiusTemp(&celsiusTemp);
   fahrenheitTemp = calcFahrenheitFromCelsius(getCelsiusTemp());
   checkFreezerScreamerConditions();
+
+  if(++loopCounter >= numLoopIterationsBeforeLog) {
+    publishTempEvent("fahrenheitTempLog", fahrenheitTemp);
+    loopCounter = 0;
+  }
 
   delay(msAdditionalDelayInterval);
 }
