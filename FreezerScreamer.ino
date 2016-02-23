@@ -32,61 +32,62 @@ power it gets more picky about the value.
 OneWire ds = OneWire(D4);  // 1-wire signal on pin D4
 
 unsigned long lastUpdate = 0;
-int msDelayInterval = 5000;
+int msConversionDelayInterval = 1000;
+int msAdditionalDelayInterval = 4000;
+int msTotalDelayInterval = msConversionDelayInterval +  msAdditionalDelayInterval;
 int msfiveMinutes = 300000;
 int msOneHour = 3600000;
 
 float lowFahrenheitThreshhold = -5.0;
 int lowThreshExceededCounter = 0;
-int numLowTempViolations = msfiveMinutes/msDelayInterval;
+int numLowTempViolations = msfiveMinutes/msTotalDelayInterval;
 
 float highFahrenheitThreshhold1 = 25.0;
 float highFahrenheitThreshhold2 = 30.0;
 int highThreshExceededCounter = 0;
 
 int numHighTempViolations_level1 = 2;
-int numHighTempViolations_level2 = msfiveMinutes/msDelayInterval;
-int numHighTempViolations_level3 = msOneHour/msDelayInterval;
+int numHighTempViolations_level2 = msfiveMinutes/msTotalDelayInterval;
+int numHighTempViolations_level3 = msOneHour/msTotalDelayInterval;
 
 double fahrenheitTemp = 0.0;
+float celsiusTemp;
 char publishString[40];
 
 void setup() {
   Serial.begin(9600);
   Time.zone(-8);
+  Particle.variable("fahrenTemp", &fahrenheitTemp, DOUBLE);
   // Set up 'power' pins, comment out if not used!
   /*pinMode(D3, OUTPUT);
   pinMode(D5, OUTPUT);
   digitalWrite(D3, LOW);
   digitalWrite(D5, HIGH);*/
-  Particle.variable("fahrenTemp", &fahrenheitTemp, DOUBLE);
 }
 
 
 bool inViolationForExactDuration(int counter, int numAllowedViolations) {
-    return counter == numAllowedViolations;
+  return counter == numAllowedViolations;
 }
 
 void publishViolationEvent(int numViolations, char* eventName) {
-    int secondsInViolation = numViolations * (msDelayInterval/1000);
-    sprintf(publishString,"%.2f", fahrenheitTemp);
-    Particle.publish(eventName, publishString);
+  sprintf(publishString,"%.2f", fahrenheitTemp);
+  Particle.publish(eventName, publishString);
 }
 
-double calcFahrenheitFromCelsius(float celsius){
+double calcFahrenheitFromCelsius(float celsius) {
   return celsius * 1.8 + 32.0;
 }
 
 // up to here, it is the same as the address acanner
 // we need a few more variables for this example
 
-void loop(void) {
+void readCelsiusTemp(float* celsius) {
   byte i;
   byte present = 0;
   byte type_s;
   byte data[12];
   byte addr[8];
-  float celsius;
 
   if ( !ds.search(addr)) {
     /*Serial.println("No more addresses.");*/
@@ -153,7 +154,7 @@ void loop(void) {
   // you could also communicate with other devices if you like but you would need
   // to already know their address to select them.
 
-  delay(msDelayInterval);     // maybe 750ms is enough, maybe not, wait 1 sec for conversion
+  delay(msConversionDelayInterval);     // maybe 750ms is enough, maybe not, wait 1 sec for conversion
 
   // we might do a ds.depower() (parasite) here, but the reset will take care of it.
 
@@ -202,7 +203,7 @@ void loop(void) {
         // "count remain" gives full 12 bit resolution
         raw = (raw & 0xFFF0) + 12 - data[6];
       }
-      celsius = (float)raw * 0.0625;
+      *celsius = (float)raw * 0.0625;
       break;
     case 0:
       // at lower res, the low bits are undefined, so let's zero them
@@ -210,21 +211,25 @@ void loop(void) {
       if (cfg == 0x20) raw = raw & ~3; // 10 bit res, 187.5 ms
       if (cfg == 0x40) raw = raw & ~1; // 11 bit res, 375 ms
       // default is 12 bit resolution, 750 ms conversion time
-      celsius = (float)raw * 0.0625;
+      *celsius = (float)raw * 0.0625;
       break;
 
     case 2:
       data[1] = (data[1] >> 3) & 0x1f;
       if (data[2] > 127) {
-        celsius = (float)data[2] - ((float)data[1] * .03125);
+        *celsius = (float)data[2] - ((float)data[1] * .03125);
       }else{
-        celsius = (float)data[2] + ((float)data[1] * .03125);
+        *celsius = (float)data[2] + ((float)data[1] * .03125);
       }
   }
 
-  fahrenheitTemp = calcFahrenheitFromCelsius(celsius);//celsius * 1.8 + 32.0;
+  return;
+}
+
+void checkFreezerScreamerConditions() {
+
   Serial.print("Temp: ");
-  Serial.print(celsius);
+  Serial.print(celsiusTemp);
   Serial.print(" C, ");
   Serial.print(fahrenheitTemp);
   Serial.println(" F");
@@ -262,4 +267,16 @@ void loop(void) {
   else {
     lowThreshExceededCounter = 0;
   }
+}
+
+float getCelsiusTemp() {
+  return celsiusTemp;
+}
+
+void loop(void) {
+  readCelsiusTemp(&celsiusTemp);
+  fahrenheitTemp = calcFahrenheitFromCelsius(getCelsiusTemp());
+  checkFreezerScreamerConditions();
+
+  delay(msAdditionalDelayInterval);
 }
