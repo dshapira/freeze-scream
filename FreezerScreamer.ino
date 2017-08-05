@@ -38,15 +38,15 @@ int msTotalDelayInterval = msConversionDelayInterval +  msAdditionalDelayInterva
 int msfiveMinutes = 300000;
 int msOneHour = 3600000;
 
-float lowFahrenheitThreshhold = -5.0;
+float lowFahrenheitThreshhold = -25.0;
 int lowThreshExceededCounter = 0;
-int numLowTempViolations = msfiveMinutes/msTotalDelayInterval;
+int numLowTempViolations = msOneHour/msTotalDelayInterval;
 
-float highFahrenheitThreshhold1 = 25.0;
-float highFahrenheitThreshhold2 = 30.0;
+float highFahrenheitThreshhold1 = 5.0;
+float highFahrenheitThreshhold2 = 15.0;
 int highThreshExceededCounter = 0;
 
-int numHighTempViolations_level1 = 2;
+int numHighTempViolations_level1 = 5;
 int numHighTempViolations_level2 = msfiveMinutes/msTotalDelayInterval;
 int numHighTempViolations_level3 = msOneHour/msTotalDelayInterval;
 
@@ -60,7 +60,7 @@ int loopCounter = 0;
 void setup() {
   Serial.begin(9600);
   Time.zone(-8);
-  Particle.variable("fahrenTemp", &fahrenheitTemp, DOUBLE);
+  Particle.variable("fahrenheitTemp", &fahrenheitTemp, DOUBLE);
   // Set up 'power' pins, comment out if not used!
   /*pinMode(D3, OUTPUT);
   pinMode(D5, OUTPUT);
@@ -247,16 +247,20 @@ void checkFreezerScreamerConditions() {
       Serial.println(" highTempViolation_level1");
       publishTempEvent("highTempViolation_level1", fahrenheitTemp);
       Particle.publish("fahrenheitTempLog", "highTempViolation_level1");
+      publishTempEvent("fahrenheitTempLog", fahrenheitTemp);
     }
     if(inViolationForExactDuration(highThreshExceededCounter, numHighTempViolations_level2)) {
       Serial.println(" highTempViolation_level2");
       publishTempEvent("highTempViolation_level2", fahrenheitTemp);
       Particle.publish("fahrenheitTempLog", "highTempViolation_level2");
+      publishTempEvent("fahrenheitTempLog", fahrenheitTemp);
     }
     if(inViolationForExactDuration(highThreshExceededCounter, numHighTempViolations_level3)) {
       Serial.println(" highTempViolation_level3");
       publishTempEvent("highTempViolation_level3", fahrenheitTemp);
       Particle.publish("fahrenheitTempLog", "highTempViolation_level3");
+      publishTempEvent("fahrenheitTempLog", fahrenheitTemp);
+
       highThreshExceededCounter = 0; // now reset notification sequence
     }
   }
@@ -280,11 +284,13 @@ void checkFreezerScreamerConditions() {
 }
 
 void loop(void) {
+  loopCounter++;
   readCelsiusTemp(&celsiusTemp);
   fahrenheitTemp = calcFahrenheitFromCelsius(getCelsiusTemp());
   checkFreezerScreamerConditions();
 
-  if(++loopCounter >= numLoopIterationsBeforeLog) {
+  if(loopCounter >= numLoopIterationsBeforeLog) {
+    Serial.println(" fahrenheitTempLog Event");
     publishTempEvent("fahrenheitTempLog", fahrenheitTemp);
     loopCounter = 0;
   }
